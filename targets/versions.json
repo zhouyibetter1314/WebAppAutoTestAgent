@@ -1,0 +1,5 @@
+{
+  "4gaboards": {"repository":"https://github.com/RARgames/4gaBoards.git", "tag":"v3.2.16", "commit":"b76dcc95fb693ca1cf7bf7ee9380f0c755d2d31c", "deployment":"infra/compose.yaml"},
+  "admidio": {"repository":"https://github.com/Admidio/admidio.git", "tag":"v5.0.2", "commit":"4484b50396e290900bc25bf953a4eb5040c7646b", "deployment":"deferred"},
+  "discourse": {"repository":"https://github.com/discourse/discourse.git", "tag":"v2025.12.0-latest", "commit":"3e7317b3344cca6c6510a32cc4c5c0f540132ad9", "deployment":"deferred"}
+}

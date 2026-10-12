@@ -1,0 +1,19 @@
+\section{实验与验证}
+\begin{frame}{工程验证与真实模型验收分别记录}
+\begin{itemize}
+\item 离线测试：模拟模型 + 本地页面 + 真实浏览器，验证执行和证据链。
+\item 覆盖：PASS / FAIL / 无法判定、失败计数、操作上限、取消、事件补读与中断。
+\item 前端：类型检查、单元测试、浏览器端到端流程与生产构建。
+\item 真实 DeepSeek + 4gaBoards：\alert{待配置密钥与 Docker 后实测}。
+\end{itemize}
+\begin{block}{数据纪律}
+测试替身结果不计入真实模型成绩；应用 PASS 比例不等于课程评测通过率。
+\end{block}
+\end{frame}
+\begin{frame}{真实运行统计：待测}
+\IfFileExists{generated/stats.tex}{\input{generated/stats.tex}}{%
+当前没有导入真实实验记录。完成实验后运行统计导出命令，生成本页数据。
+}
+\vfill
+\small 每次实验记录场景、应用 SHA、服务地址、请求/返回模型名、时间、步数、Token 与证据。
+\end{frame}

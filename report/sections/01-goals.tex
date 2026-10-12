@@ -1,0 +1,21 @@
+\section{目标与课程约束}
+\begin{frame}{交付一个能解释测试结论的图形化 Agent}
+\begin{block}{端到端闭环}
+输入自然语言场景 $\rightarrow$ 自主执行浏览器操作 $\rightarrow$ 独立验证检查点 $\rightarrow$ 输出证据报告
+\end{block}
+\begin{itemize}
+\item 操作者通过中文工作台管理场景、跟踪运行、检查截图和下载报告。
+\item CLI 与 Web 共用执行服务；本地单用户、顺序运行，支持取消和历史补读。
+\item 原始需求与检查点保持不变；执行错误不能直接判成应用缺陷。
+\end{itemize}
+\end{frame}
+\begin{frame}{课程约束与范围}
+\begin{itemize}
+\item 自主设计策略；LangGraph 仅承担流程与状态管理。
+\item 课程要求 DeepSeek-V4.1-Flash；请求别名 deepseek-flash，正式评测前复核映射。
+\item 最多 35 次浏览器操作：初始导航、登录、失败尝试均计数。
+\item 固定被测版本：4gaBoards 3.2.16、Admidio 5.0.2、Discourse 2025.12.0-latest。
+\item 36 个课程场景：13 / 12 / 11；教师的 5 个调试场景尚未取得。
+\end{itemize}
+\footnotesize 来源：课程 PPT 第 3、6--8 页。当前创建项目示例为自建改写，非教师原始场景。
+\end{frame}

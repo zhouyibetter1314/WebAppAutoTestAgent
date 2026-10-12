@@ -1,0 +1,38 @@
+name: checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  code:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.0'
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm install --global pnpm@12.11.2
+      - run: uv sync --frozen --all-groups
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - run: uv run playwright install --with-deps chromium
+      - run: pnpm --dir frontend exec playwright install --with-deps chromium
+      - run: uv run pre-commit run --all-files
+      - run: bash scripts/check.sh all
+      - run: pnpm --dir frontend test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-evidence
+          path: frontend/test-results/
+  report:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-lang-chinese texlive-latex-extra latexmk
+      - run: cd report && latexmk -xelatex -interaction=nonstopmode -halt-on-error -outdir=build main.tex
+      - uses: actions/upload-artifact@v4
+        with:
+          name: project-report
+          path: report/build/main.pdf

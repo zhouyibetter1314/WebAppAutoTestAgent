@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "webapp-auto-test-agent"
+version = "0.1.0"
+description = "Evidence-first autonomous Web testing workbench"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "python-dotenv>=1.2,<2",
+  "alembic>=1.16,<2", "fastapi>=0.115,<1", "filelock>=3.18,<4",
+  "httpx>=0.28,<1", "langgraph>=1,<2", "playwright>=1.51,<2",
+  "pydantic>=2.11,<3", "pydantic-settings>=2.8,<3", "sqlalchemy>=2.0,<3",
+  "typer>=0.16,<1", "uvicorn>=0.34,<1",
+]
+
+[project.scripts]
+waat = "webapp_auto_test_agent.cli:app"
+
+[dependency-groups]
+dev = ["commitizen>=4,<5", "mypy>=1.15,<2", "pre-commit>=4,<5", "ruff>=0.11,<1"]
+test = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "pytest-cov>=6,<8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/webapp_auto_test_agent"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["targets", ".tools", "frontend", "report/build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["src"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["browser: real local Chromium, no paid model", "live: explicitly enabled DeepSeek and 4gaBoards acceptance"]
+addopts = "-ra"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+tag_format = "v$version"

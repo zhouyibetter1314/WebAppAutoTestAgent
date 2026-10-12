@@ -1,0 +1,24 @@
+# Versions/digests are recorded in images.json; upstream npm lockfiles are used verbatim.
+FROM node:24.11.1-bookworm-slim@sha256:48abc13a19400ca3985071e287bd405a1d99306770eb81d61202fb6b65cf0b57 AS server-dependencies
+WORKDIR /app
+COPY targets/4gaboards/server/package.json targets/4gaboards/server/package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
+
+FROM node:24.11.1-bookworm-slim@sha256:48abc13a19400ca3985071e287bd405a1d99306770eb81d61202fb6b65cf0b57 AS client
+WORKDIR /app
+COPY targets/4gaboards/client/package.json targets/4gaboards/client/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY targets/4gaboards/client .
+RUN DISABLE_ESLINT_PLUGIN=true npm run build
+
+FROM node:24.11.1-bookworm-slim@sha256:48abc13a19400ca3985071e287bd405a1d99306770eb81d61202fb6b65cf0b57
+WORKDIR /app
+COPY --chown=node:node targets/4gaboards/server .
+COPY --chown=node:node --chmod=755 targets/4gaboards/start.sh .
+RUN mv .env.sample .env
+COPY --from=server-dependencies --chown=node:node /app/node_modules node_modules
+COPY --from=client --chown=node:node /app/build public
+COPY --from=client --chown=node:node /app/build/index.html views/index.ejs
+USER node
+EXPOSE 1337
+CMD ["./start.sh"]

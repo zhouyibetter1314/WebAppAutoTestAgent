@@ -1,0 +1,150 @@
+{
+  // ---------------------------------------------------------------- 编辑器手感 / 视觉风格
+  "editor.cursorSmoothCaretAnimation": "on", // 光标移动带缓动动画
+  "editor.cursorBlinking": "expand",
+  "editor.cursorWidth": 2,
+  "editor.cursorSurroundingLines": 8, // 光标上下始终留出可见行
+  "editor.cursorSurroundingLinesStyle": "all",
+  "editor.smoothScrolling": true, // 平滑滚动
+  "editor.mouseWheelZoom": true, // Ctrl + 滚轮缩放字号
+  "editor.renderLineHighlight": "all",
+  "editor.renderWhitespace": "boundary",
+  "editor.guides.indentation": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.unicodeHighlight.ambiguousCharacters": false,
+  "editor.fontFamily": "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', 'Noto Sans Mono CJK SC', Consolas, monospace",
+  "editor.fontLigatures": true,
+  "editor.fontSize": 14,
+  "editor.lineHeight": 1.6,
+  "editor.letterSpacing": 0.2,
+  "editor.tabSize": 2,
+  "editor.detectIndentation": false, // 统一由本文件与 .editorconfig 决定缩进
+  "editor.insertSpaces": true,
+  "editor.rulers": [100],
+  "editor.wordWrapColumn": 100,
+  "editor.stickyScroll.enabled": true,
+  "editor.linkedEditing": true,
+  "editor.suggest.preview": true,
+  "editor.suggestSelection": "first",
+  "editor.acceptSuggestionOnEnter": "smart",
+  "editor.minimap.renderCharacters": false,
+  "editor.minimap.maxColumn": 100,
+  "editor.inlayHints.enabled": "onUnlessPressed",
+  "editor.autoIndent": "full",
+  "editor.formatOnPaste": false,
+  "editor.formatOnSave": true,
+  "editor.trimAutoWhitespace": true,
+
+  // ---------------------------------------------------------------- 文件与编码（对齐 .editorconfig）
+  "files.encoding": "utf8",
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.autoSave": "onFocusChange",
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.mypy_cache": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/*.egg-info": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.venv": true,
+    "**/.waat": true,
+    "**/.tools": true,
+    "**/targets": true,
+    "**/report/build": true,
+    "**/dist": true,
+    "**/pnpm-lock.yaml": true,
+    "**/uv.lock": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.venv/**": true,
+    "**/targets/**": true,
+    "**/.tools/**": true
+  },
+
+  // ---------------------------------------------------------------- 资源管理器 / 工作台
+  "explorer.compactFolders": false,
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "pyproject.toml": "uv.lock, .python-version, alembic.ini, .pre-commit-config.yaml",
+    "package.json": "pnpm-lock.yaml, .npmrc, pnpm-workspace.yaml, tsconfig.json, vite.config.ts, vitest.config.ts, eslint.config.js, .prettierrc.json, playwright.config.ts",
+    ".env": ".env.example"
+  },
+  "workbench.tree.indent": 16,
+  "workbench.editor.highlightModifiedTabs": true,
+  "breadcrumbs.enabled": true,
+  "problems.sortOrder": "severity",
+  "git.autofetch": true,
+  "git.branchProtection": ["main"],
+
+  // ---------------------------------------------------------------- Python（ruff + mypy + pytest）
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingTypeStubs": "none"
+  },
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests", "-q"],
+  "[python]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.rulers": [100],
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+  "ruff.lineLength": 100,
+
+  // ---------------------------------------------------------------- 前端（Vue / TS，prettier + eslint）
+  "eslint.useFlatConfig": true,
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.validate": ["javascript", "typescript", "vue"],
+  "eslint.run": "onType",
+  "prettier.requireConfig": true,
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "typescript.preferences.importModuleSpecifier": "shortest",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" }
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" }
+  },
+  "[vue]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" }
+  },
+  "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[jsonc]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[yaml]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.rulers": [],
+    "files.trimTrailingWhitespace": false
+  },
+
+  // ---------------------------------------------------------------- 终端
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.scrollback": 10000,
+  "terminal.integrated.enablePersistentSessions": true,
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "python.terminal.activateEnvironment": true,
+
+  // ---------------------------------------------------------------- 其它
+  "gitlens.codeLens.enabled": false,
+  "diffEditor.ignoreTrimWhitespace": false,
+  "telemetry.telemetryLevel": "off"
+}

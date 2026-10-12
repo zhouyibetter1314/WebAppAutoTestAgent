@@ -1,0 +1,42 @@
+minimum_pre_commit_version: '4.0.0'
+exclude: ^(targets/(4gaboards|admidio|discourse)/|\.tools/|\.waat/|frontend/src/schema\.d\.ts$)
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+repos:
+  - repo: local
+    hooks:
+      - id: file-hygiene
+        name: 文件格式、冲突与明显密钥检查
+        entry: .venv/bin/python scripts/check_files.py
+        language: system
+        stages: [pre-commit]
+      - id: ruff
+        name: Ruff
+        entry: .venv/bin/ruff check
+        language: system
+        types: [python]
+        stages: [pre-commit]
+      - id: ruff-format
+        name: Python 格式
+        entry: .venv/bin/ruff format --check
+        language: system
+        types: [python]
+        stages: [pre-commit]
+      - id: frontend-lint
+        name: 前端 lint 与格式
+        entry: bash -c 'pnpm --dir frontend lint && pnpm --dir frontend format:check'
+        language: system
+        files: ^frontend/
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: commitizen
+        name: Conventional Commits
+        entry: .venv/bin/cz check --commit-msg-file
+        language: system
+        stages: [commit-msg]
+      - id: quick-check
+        name: 类型检查与快速离线测试
+        entry: bash scripts/check.sh quick
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

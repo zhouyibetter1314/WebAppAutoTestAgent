@@ -1,0 +1,12 @@
+{
+  "application": {
+    "name": "4gaBoards local",
+    "base_url": "http://localhost:3000",
+    "username_env": "BOARDS_USERNAME",
+    "password_env": "BOARDS_PASSWORD",
+    "version": "3.2.16"
+  },
+  "name": "创建项目并验证两个位置",
+  "description": "Log in if needed. From the dashboard, click Add project, enter the project name Course Test and confirm. Verify that the newly created project appears both on the dashboard and in the sidebar.",
+  "source": "self-authored: adapted from slide 3; not a teacher-issued evaluation case"
+}

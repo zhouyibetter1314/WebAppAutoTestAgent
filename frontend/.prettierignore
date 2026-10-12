@@ -1,0 +1,6 @@
+node_modules
+dist
+pnpm-lock.yaml
+src/schema.d.ts
+playwright-report
+test-results

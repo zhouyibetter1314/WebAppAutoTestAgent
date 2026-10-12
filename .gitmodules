@@ -1,0 +1,9 @@
+[submodule "targets/4gaboards"]
+	path = targets/4gaboards
+	url = https://github.com/RARgames/4gaBoards.git
+[submodule "targets/admidio"]
+	path = targets/admidio
+	url = https://github.com/Admidio/admidio.git
+[submodule "targets/discourse"]
+	path = targets/discourse
+	url = https://github.com/discourse/discourse.git

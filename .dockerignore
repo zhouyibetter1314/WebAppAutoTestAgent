@@ -1,0 +1,9 @@
+**
+!targets/
+!targets/4gaboards/
+!targets/4gaboards/**
+!infra/
+!infra/Dockerfile.4gaboards
+**/.git
+**/node_modules
+**/.env

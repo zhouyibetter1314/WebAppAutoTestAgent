@@ -1,0 +1,27 @@
+\section{系统设计}
+\begin{frame}{模块边界清晰，便于 2--4 人协作}
+\centering
+\begin{tikzpicture}[box/.style={draw=waatteal,rounded corners,minimum width=3.1cm,minimum height=.8cm,align=center},node distance=.5cm and .8cm,>=Stealth]
+\node[box] (ui) {Vue 图形工作台};
+\node[box,right=of ui] (cli) {Typer 命令行};
+\node[box,below=of ui] (api) {FastAPI / SSE};
+\node[box,below=of cli] (service) {共享应用服务 / 运行锁};
+\node[box,below=of service] (graph) {LangGraph / Pydantic};
+\node[box,left=of graph] (db) {SQLite / 事件 / 报告};
+\node[box,below=of graph] (browser) {Playwright / 被测应用};
+\draw[->] (ui)--(api);\draw[->] (cli)--(service);\draw[->] (api)--(service);
+\draw[->] (service)--(graph);\draw[->] (service)--(db);\draw[->] (graph)--(browser);
+\end{tikzpicture}
+\end{frame}
+\begin{frame}{单 Agent 状态图与判定策略}
+\begin{enumerate}
+\item 解析：保留原文，生成前置条件、目标、独立检查点。
+\item 规划与观察：生成计划，读取 DOM/ARIA，保存页面截图。
+\item 决策与执行：校验结构化动作，在分发前计入预算。
+\item 验证与恢复：引用观察原文和证据编号；定位失败后有限恢复。
+\item 汇总与收尾：生成报告、保存 Trace、关闭浏览器和模型连接。
+\end{enumerate}
+\begin{block}{判定规则}
+全部检查点满足 $\Rightarrow$ PASS；可靠反例 $\Rightarrow$ FAIL；执行异常或证据不足 $\Rightarrow$ 无法判定。
+\end{block}
+\end{frame}

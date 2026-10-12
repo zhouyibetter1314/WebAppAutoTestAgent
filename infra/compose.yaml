@@ -1,0 +1,45 @@
+name: waat-boards
+services:
+  db:
+    image: postgres:16.11-bookworm@sha256:a2420e9555e2224583fe84d0bb3f0b967e69354ae3a0be55a9c14e251388c4eb
+    environment:
+      POSTGRES_DB: 4gaBoards
+      POSTGRES_PASSWORD: waat-local-test-only
+      POSTGRES_INITDB_ARGS: -A scram-sha-256
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d 4gaBoards']
+      interval: 2s
+      timeout: 5s
+      retries: 50
+  boards:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.4gaboards
+    image: waat-4gaboards:3.2.16
+    ports:
+      - '127.0.0.1:3000:1337'
+    environment:
+      BASE_URL: http://localhost:3000
+      SECRET_KEY: waat-local-isolated-course-test-environment
+      DATABASE_URL: postgresql://postgres:waat-local-test-only@db/4gaBoards
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - user-avatars:/app/public/user-avatars
+      - project-background-images:/app/public/project-background-images
+      - attachments:/app/private/attachments
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:1337').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      start_period: 30s
+      retries: 60
+volumes:
+  db-data:
+  user-avatars:
+  project-background-images:
+  attachments:

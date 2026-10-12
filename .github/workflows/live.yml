@@ -1,0 +1,37 @@
+name: manual-live-acceptance
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: live-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.0'
+      - run: uv sync --frozen --all-groups
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run waat targets up
+      - run: |
+          test -n "$DEEPSEEK_API_KEY" || { echo "未配置真实验收密钥"; exit 1; }
+          uv run pytest -v -m live
+        env:
+          WAAT_LIVE: '1'
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          BOARDS_USERNAME: demo
+          BOARDS_PASSWORD: demo
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-evidence-private
+          path: .waat/runs/
+          include-hidden-files: true
+          retention-days: 7
+      - if: always()
+        run: docker compose -f infra/compose.yaml --project-name waat-boards down --volumes
