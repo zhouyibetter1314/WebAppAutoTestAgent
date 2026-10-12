@@ -1,0 +1,5 @@
+# Docker Engine systemd drop-in. Adjust the port to your local HTTP/mixed proxy.
+[Service]
+Environment="HTTP_PROXY=http://127.0.0.1:7897"
+Environment="HTTPS_PROXY=http://127.0.0.1:7897"
+Environment="NO_PROXY=localhost,127.0.0.1,::1"

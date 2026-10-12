@@ -57,3 +57,24 @@ WAAT_LIVE=1 uv run pytest -v -m live
 ```
 
 没有 API Key 时真实测试明确跳过；不应把 skipped 视为通过。GitHub 手动工作流使用 `live-test` environment 的 `DEEPSEEK_API_KEY` secret，并创建独立的 4gaBoards 环境。运行前确认模型调用预算，上传证据仅保留 7 天。
+
+## VPN 已开启但 Docker 拉取超时
+
+Docker Engine 的镜像拉取由系统 daemon 执行，它不会自动继承终端中的代理变量。
+先确认本地代理的 HTTP/mixed 端口。本机检查时 `127.0.0.1:7897` 可以访问 Docker Hub，
+而 IPv4 直连也超时；因此优先配置 daemon 代理，不必先禁用 IPv6。
+
+仓库提供 `infra/docker-proxy.conf.example`。按实际端口修改模板后，在项目根目录执行：
+
+```bash
+sudo install -D -m 644 infra/docker-proxy.conf.example /etc/systemd/system/docker.service.d/waat-proxy.conf
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+docker info --format 'HTTPProxy={{.HTTPProxy}} HTTPSProxy={{.HTTPSProxy}}'
+docker compose -f infra/compose.yaml pull db
+```
+
+重启会影响当前 Docker 服务；拉取镜像时保持代理运行。
+如需撤销，仅移除本次新增的 `waat-proxy.conf`，再 daemon-reload 和 restart docker。
+这份模板适用于本机 systemd 管理的 Docker Engine；Docker Desktop 使用其代理设置。
+参考：[Docker daemon 代理配置](https://docs.docker.com/engine/daemon/proxy/)。
