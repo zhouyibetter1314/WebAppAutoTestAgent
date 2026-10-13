@@ -37,6 +37,17 @@ class FakeModel:
                     },
                 },
             }
+        elif phase == "audit_evidence":
+            value = {
+                "checks": [
+                    {
+                        "id": item["checkpoint"]["id"],
+                        "supported": True,
+                        "reason": "The controlled fixture provides direct evidence.",
+                    }
+                    for item in payload["candidate_checks"]
+                ]
+            }
         else:
             last = payload["observations"][-1]
             value = {

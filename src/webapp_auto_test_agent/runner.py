@@ -16,6 +16,7 @@ from .model import Model
 from .schemas import (
     Checkpoint,
     Decision,
+    EvidenceAudit,
     Navigate,
     Plan,
     Report,
@@ -38,6 +39,9 @@ class GraphState(TypedDict, total=False):
     rounds: int
     stop: bool
     reason: str
+    verification_feedback: list[dict[str, str]]
+    final_verification: bool
+    finish_attempts: int
 
 
 def determine_verdict(checks: list[Checkpoint], reliable: bool = True) -> Verdict:
@@ -95,6 +99,11 @@ class Runner:
             "recent_actions": self.history[-8:],
             "steps_remaining": self.run.max_steps - self.browser.steps,
             "last_error": state.get("last_error", ""),
+            "verification_feedback": state.get("verification_feedback", []),
+            "final_verification": state.get("final_verification", False),
+            "latest_observation": self.run.observations[-1].model_dump()
+            if self.run.observations
+            else None,
             "credential_placeholders_available": {
                 k: bool(v) for k, v in self.browser.secrets.items()
             },
@@ -173,37 +182,87 @@ class Runner:
     async def verify(self, state: GraphState) -> GraphState:
         self.guard()
         # Failed execution is handled by recovery, not misclassified as an application defect.
-        if state.get("last_error") or len(self.history) <= 1:
+        if state.get("last_error") or (
+            len(self.history) <= 1 and not state.get("final_verification")
+        ):
             return {}
         result = await self.model.ask("verify", self.payload(state), Verification)
         observations = {o.id: o for o in self.run.observations}
         checks = {c.id: c for c in self.run.checkpoints}
         accepted: list[dict[str, Any]] = []
+        feedback: list[dict[str, str]] = []
+        candidates = []
         for update in result.checks:
             check = checks.get(update.id)
             if check is None:
                 continue  # A verifier cannot invent new acceptance criteria.
-            if update.status != "pending":
-                valid_ids = bool(update.evidence_ids) and all(
-                    identifier in observations for identifier in update.evidence_ids
+            if update.status == "pending":
+                check.status, check.actual, check.evidence_ids = (
+                    update.status,
+                    update.actual,
+                    update.evidence_ids,
                 )
-                quoted = bool(update.quote.strip()) and any(
-                    update.quote in observations[identifier].aria
-                    for identifier in update.evidence_ids
-                    if identifier in observations
-                )
-                if not valid_ids or not quoted or not update.actual.strip():
-                    self.save(
-                        "verification_rejected",
-                        {"checkpoint": update.id, "reason": "缺少有效观察引用或原文证据"},
-                    )
-                    continue
-            check.status, check.actual, check.evidence_ids = (
-                update.status,
-                update.actual,
-                update.evidence_ids,
+                accepted.append(update.model_dump())
+                continue
+            valid_ids = bool(update.evidence_ids) and all(
+                identifier in observations for identifier in update.evidence_ids
             )
-            accepted.append(update.model_dump())
+            quoted = bool(update.quote.strip()) and any(
+                update.quote in observations[identifier].aria
+                for identifier in update.evidence_ids
+                if identifier in observations
+            )
+            if not valid_ids or not quoted or not update.actual.strip():
+                if not valid_ids:
+                    reason = "引用了不存在的观察编号，请使用提供的 evidence IDs"
+                elif not quoted:
+                    reason = "引文不匹配，请从最新 ARIA 逐字复制一段连续原文，不要拼接或添加省略号"
+                else:
+                    reason = "缺少实际观察描述"
+                feedback.append({"checkpoint": update.id, "reason": reason})
+                continue
+            candidates.append(update)
+        if candidates:
+            audit = await self.model.ask(
+                "audit_evidence",
+                {
+                    "original_scenario": self.run.scenario.description,
+                    "baseline": self.run.observations[0].model_dump(),
+                    "recent_actions": self.history[-8:],
+                    "candidate_checks": [
+                        {
+                            "checkpoint": checks[update.id].model_dump(),
+                            "proposed": update.model_dump(),
+                            "observations": [
+                                observations[identifier].model_dump()
+                                for identifier in update.evidence_ids
+                            ],
+                        }
+                        for update in candidates
+                    ],
+                },
+                EvidenceAudit,
+            )
+            self.save("evidence_audit", audit.model_dump())
+            support = {item.id: item for item in audit.checks}
+            for update in candidates:
+                assessment = support.get(update.id)
+                if assessment is None or not assessment.supported:
+                    reason = assessment.reason if assessment else "证据审查未覆盖该检查点"
+                    feedback.append({"checkpoint": update.id, "reason": reason})
+                    check = checks[update.id]
+                    if check.status == "pending":
+                        check.actual = "证据仍不足：" + reason
+                    continue
+                check = checks[update.id]
+                check.status, check.actual, check.evidence_ids = (
+                    update.status,
+                    update.actual,
+                    update.evidence_ids,
+                )
+                accepted.append(update.model_dump())
+        for item in feedback:
+            self.save("verification_rejected", item)
         self.save("verification", {"checks": accepted})
         verdict = determine_verdict(self.run.checkpoints)
         if verdict != Verdict.INCONCLUSIVE:
@@ -213,7 +272,46 @@ class Runner:
                 if verdict == Verdict.PASS
                 else "已观察到与场景要求不一致的行为",
             }
-        return {}
+        return {"verification_feedback": feedback}
+
+    async def finalize(self, state: GraphState) -> GraphState:
+        self.guard()
+        attempts = state.get("finish_attempts", 0) + 1
+        self.save("final_verification", {"attempt": attempts})
+        # Finishing is an actor request, never a substitute for independent verification.
+        await self.observe(state)
+        result = await self.verify({**state, "final_verification": True})
+        if determine_verdict(self.run.checkpoints) != Verdict.INCONCLUSIVE and not state.get(
+            "last_error"
+        ):
+            return {**result, "stop": True, "finish_attempts": attempts}
+        if (
+            attempts >= 2
+            or self.browser.steps >= self.run.max_steps
+            or state.get("rounds", 0) > self.run.max_steps * 2 + 10
+            or state.get("last_error")
+        ):
+            return {
+                **result,
+                "stop": True,
+                "finish_attempts": attempts,
+                "reason": "结束前复核仍有检查点缺少有效证据",
+            }
+        feedback = result.get("verification_feedback", [])
+        if not feedback:
+            feedback = [
+                {"checkpoint": check.id, "reason": "该检查点未验证，请继续收集直接证据"}
+                for check in self.run.checkpoints
+                if check.status == "pending"
+            ]
+        return {
+            **result,
+            "stop": False,
+            "reason": "",
+            "finish_attempts": attempts,
+            "final_verification": False,
+            "verification_feedback": feedback,
+        }
 
     async def recover(self, state: GraphState) -> GraphState:
         self.guard()
@@ -229,7 +327,16 @@ class Runner:
 
     def graph(self) -> Any:
         graph = StateGraph(GraphState)
-        for name in ("parse", "plan", "observe", "decide", "execute", "verify", "recover"):
+        for name in (
+            "parse",
+            "plan",
+            "observe",
+            "decide",
+            "execute",
+            "verify",
+            "recover",
+            "finalize",
+        ):
             graph.add_node(name, getattr(self, name))
         graph.add_edge(START, "parse")
         graph.add_edge("parse", "plan")
@@ -239,7 +346,8 @@ class Runner:
             "verify",
             lambda s: END if s.get("stop") else ("recover" if s.get("last_error") else "decide"),
         )
-        graph.add_conditional_edges("decide", lambda s: END if s.get("stop") else "execute")
+        graph.add_conditional_edges("decide", lambda s: "finalize" if s.get("stop") else "execute")
+        graph.add_conditional_edges("finalize", lambda s: END if s.get("stop") else "decide")
         graph.add_edge("execute", "observe")
         graph.add_conditional_edges("recover", lambda s: END if s.get("stop") else "decide")
         return graph.compile()

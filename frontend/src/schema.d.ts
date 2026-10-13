@@ -379,6 +379,10 @@ export interface components {
             screenshot: string;
             /** Snapshot */
             snapshot: string;
+            /** Controls */
+            controls: {
+                [key: string]: unknown;
+            }[];
         };
         /** Report */
         Report: {

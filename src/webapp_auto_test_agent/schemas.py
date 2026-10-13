@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
@@ -148,9 +148,18 @@ class Plan(StrictModel):
 
 class Decision(StrictModel):
     reason: str
-    action: Action | None = None
-    wait_ms: int = Field(default=0, ge=0, le=3000)
-    finish: bool = False
+    action: Action | None = Field(
+        default=None, description="One browser action. When set, wait_ms=0 and finish=false."
+    )
+    wait_ms: int = Field(
+        default=0,
+        ge=0,
+        le=3000,
+        description="Stand-alone wait only. Must be zero when action is set or finish=true.",
+    )
+    finish: bool = Field(
+        default=False, description="End the run. When true, action=null and wait_ms=0."
+    )
 
     @model_validator(mode="after")
     def one_choice(self) -> "Decision":
@@ -171,6 +180,28 @@ class Verification(StrictModel):
     checks: list[CheckUpdate]
 
 
+class EvidenceSupport(StrictModel):
+    id: str
+    supported: bool = Field(
+        description=(
+            "True only if cited observations directly prove the checkpoint "
+            "in its required page and scope. Never infer another page from shared navigation."
+        )
+    )
+    reason: str = Field(min_length=1)
+
+
+class EvidenceAudit(StrictModel):
+    checks: list[EvidenceSupport]
+
+    @model_validator(mode="after")
+    def unique_ids(self) -> "EvidenceAudit":
+        ids = [check.id for check in self.checks]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Audit checkpoint IDs must be unique")
+        return self
+
+
 class Observation(StrictModel):
     id: str = Field(default_factory=new_id)
     created_at: str = Field(default_factory=now)
@@ -179,6 +210,7 @@ class Observation(StrictModel):
     aria: str
     screenshot: str
     snapshot: str
+    controls: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class Resources(StrictModel):

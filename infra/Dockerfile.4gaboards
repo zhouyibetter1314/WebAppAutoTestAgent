@@ -15,7 +15,8 @@ FROM node:24.11.1-bookworm-slim@sha256:48abc13a19400ca3985071e287bd405a1d9930677
 WORKDIR /app
 COPY --chown=node:node targets/4gaboards/server .
 COPY --chown=node:node --chmod=755 targets/4gaboards/start.sh .
-RUN mv .env.sample .env
+# COPY --chown owns copied files; WORKDIR itself must also be writable by node.
+RUN mv .env.sample .env && chown node:node /app
 COPY --from=server-dependencies --chown=node:node /app/node_modules node_modules
 COPY --from=client --chown=node:node /app/build public
 COPY --from=client --chown=node:node /app/build/index.html views/index.ejs

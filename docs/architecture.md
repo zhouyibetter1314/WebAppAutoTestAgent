@@ -15,9 +15,9 @@ flowchart TD
 
 `schemas.py` 是共享领域契约；浏览器 Page/Context 与 HTTP client 由 Runner 管理，图状态只含可序列化数据。原始场景和应用配置在创建运行时复制，之后编辑场景不改变历史记录。
 
-状态图 parse→plan→observe→verify→decide→execute→observe；执行失败进入 recover，再由决策选择恢复动作。初始页面导航也计数。达到预算后仍观察验证，工具层拒绝第 36 次操作。恢复和整体超时双重限制，观察/等待循环还有独立轮次上限。
+状态图 parse→plan→observe→verify→decide→execute→observe；请求结束时进入 finalize，重新观察并验证待完成检查点；执行失败进入 recover，再由决策选择恢复动作。初始页面导航也计数。达到预算后仍观察验证，工具层拒绝第 36 次操作。恢复和整体超时双重限制，观察/等待循环还有独立轮次上限。
 
-检查点的 expected 由解析阶段固定；验证阶段只能更新状态、实际观察和证据编号。非 pending 结果要求引用存在的观察，并能在 ARIA 中找到所引原文。这能阻止虚构证据编号，但不能保证模型语义判定总是正确，正式评测仍须与人工标准答案对照。
+检查点的 expected 由解析阶段固定；验证阶段只能更新状态、实际观察和证据编号。非 pending 结果要求引用存在的观察，并能在 ARIA 中找到所引原文。候选 PASS/FAIL 还需独立 evidence_audit 审查是否直接证明要求的页面/区域，不能把其他页面的共享导航当作目标页面证据。结束请求不替代验证；复核次数有限，证据不足仍为无法判定。模型语义判断仍需与人工标准答案对照。
 
 运行状态 queued/running/completed/cancelled/interrupted/error 与测试结论 PASS/FAIL/INCONCLUSIVE 独立。取消/异常统一产生无法判定报告，保留已有证据。所有动作分发前增加步数，失败同样消耗预算。
 

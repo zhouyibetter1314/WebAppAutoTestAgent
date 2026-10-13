@@ -862,11 +862,28 @@
           "snapshot": {
             "type": "string",
             "title": "Snapshot"
+          },
+          "controls": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Controls"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["id", "created_at", "url", "title", "aria", "screenshot", "snapshot"],
+        "required": [
+          "id",
+          "created_at",
+          "url",
+          "title",
+          "aria",
+          "screenshot",
+          "snapshot",
+          "controls"
+        ],
         "title": "Observation"
       },
       "Report": {

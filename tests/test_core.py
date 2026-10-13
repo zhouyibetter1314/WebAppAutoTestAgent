@@ -188,3 +188,182 @@ async def test_overall_timeout_closes_resources(settings, page_server):
         assert result.report and model.closed
     finally:
         await service.close()
+
+
+@pytest.mark.browser
+async def test_observation_disambiguates_unlabelled_inputs_without_values(
+    settings, tmp_path, monkeypatch
+):
+    import json
+
+    monkeypatch.setenv("FIXTURE_PASSWORD", "fixture-private-password")
+    application = Application(
+        name="fixture", base_url=HttpUrl("http://localhost"), password_env="FIXTURE_PASSWORD"
+    )
+    browser = BrowserSession(settings, application, tmp_path, 35)
+    await browser.start()
+    try:
+        await browser.page.set_content("""<title>Login</title><input name="username">
+          <input name="password" type="password" value="fixture-private-password">
+          <button>Login</button>""")
+        observation = await browser.observe()
+        selectors = {control["selector"] for control in observation.controls}
+        assert 'input[name="username"]' in selectors
+        assert 'input[name="password"]' in selectors
+        assert "fixture-private-password" not in json.dumps(observation.controls)
+        assert all("value" not in control for control in observation.controls)
+    finally:
+        await browser.close()
+
+
+@pytest.mark.parametrize("omit_assessment", [False, True])
+async def test_sidebar_quote_cannot_pass_dashboard_without_supported_audit(
+    settings, omit_assessment
+):
+    from webapp_auto_test_agent.runner import Runner, determine_verdict
+    from webapp_auto_test_agent.schemas import Checkpoint, Observation, Run
+
+    class RejectScopeModel(FakeModel):
+        async def ask(self, phase, payload, schema):
+            self.resources.model_requests += 1
+            if phase == "verify":
+                return schema.model_validate(
+                    {
+                        "checks": [
+                            {
+                                "id": "dashboard",
+                                "status": "satisfied",
+                                "actual": "Sidebar shown; dashboard assumed.",
+                                "evidence_ids": ["project-page"],
+                                "quote": "Course Test",
+                            }
+                        ]
+                    }
+                )
+            assert phase == "audit_evidence"
+            assert payload["candidate_checks"][0]["observations"][0]["url"].endswith("/projects/1")
+            return schema.model_validate(
+                {
+                    "checks": []
+                    if omit_assessment
+                    else [
+                        {
+                            "id": "dashboard",
+                            "supported": False,
+                            "reason": "Dashboard not observed after creation.",
+                        }
+                    ]
+                }
+            )
+
+    service = Service(settings, FakeModel)
+    service.open()
+    try:
+        item = scenario(service, "http://localhost:3000")
+        application = Application.model_validate(
+            service.store.get("application", item.application_id)
+        )
+        run = Run(
+            scenario=item,
+            application=application,
+            checkpoints=[Checkpoint(id="dashboard", expected="Project appears on dashboard")],
+            observations=[
+                Observation(
+                    id="project-page",
+                    url="http://localhost:3000/projects/1",
+                    title="Course Test",
+                    aria='- link "Course Test"',
+                    screenshot="e.png",
+                    snapshot="e.json",
+                )
+            ],
+        )
+        runner = Runner(settings, service.store, run, RejectScopeModel(), asyncio.Event())
+        runner.history = [{}, {}]
+        state = await runner.verify({})
+        assert run.checkpoints[0].status == "pending"
+        assert determine_verdict(run.checkpoints) == Verdict.INCONCLUSIVE
+        assert state["verification_feedback"][0]["checkpoint"] == "dashboard"
+        assert any(e.kind == "verification_rejected" for e in service.store.events(run.id))
+    finally:
+        await service.close()
+
+
+@pytest.mark.browser
+async def test_finish_request_reverifies_rejected_quote(settings, page_server):
+    class FinishAfterCreate(FakeModel):
+        async def ask(self, phase, payload, schema):
+            if phase == "next_action" and len(payload["recent_actions"]) >= 2:
+                return schema.model_validate({"reason": "Creation looks done", "finish": True})
+            result = await super().ask(phase, payload, schema)
+            if phase == "verify" and not payload.get("final_verification"):
+                result.checks[0].quote = "not an exact quote"
+            return result
+
+    service = Service(settings, FinishAfterCreate)
+    service.open()
+    try:
+        run = service.submit(RunRequest(scenario_id=scenario(service, page_server).id))
+        result = await service.tasks[run.id]
+        assert result.verdict == Verdict.PASS
+        assert result.resources.browser_steps == 2
+        events = service.store.events(run.id)
+        assert any(e.kind == "verification_rejected" for e in events)
+        assert any(e.kind == "final_verification" for e in events)
+        assert any(e.kind == "evidence_audit" for e in events)
+    finally:
+        await service.close()
+
+
+@pytest.mark.browser
+async def test_premature_finish_does_not_manufacture_pass(settings, page_server):
+    class FinishImmediately(FakeModel):
+        async def ask(self, phase, payload, schema):
+            if phase == "next_action":
+                return schema.model_validate({"reason": "Assume done", "finish": True})
+            return await super().ask(phase, payload, schema)
+
+    service = Service(settings, FinishImmediately)
+    service.open()
+    try:
+        run = service.submit(RunRequest(scenario_id=scenario(service, page_server).id))
+        result = await service.tasks[run.id]
+        assert result.verdict == Verdict.INCONCLUSIVE
+        assert result.resources.browser_steps == 1
+        assert sum(e.kind == "final_verification" for e in service.store.events(run.id)) == 2
+    finally:
+        await service.close()
+
+
+@pytest.mark.browser
+async def test_observation_retries_when_url_and_title_change(
+    settings, page_server, tmp_path, monkeypatch
+):
+    browser = BrowserSession(
+        settings, Application(name="fixture", base_url=HttpUrl(page_server)), tmp_path, 35
+    )
+    await browser.start()
+    try:
+        await browser.execute(Navigate(kind="navigate", url=HttpUrl(page_server)))
+        original_title = browser.page.title
+        calls = 0
+
+        async def transitioning_title():
+            nonlocal calls
+            calls += 1
+            title = await original_title()
+            if calls == 1:
+                await browser.page.evaluate(
+                    "history.replaceState(null, '', '/changed'); document.title = 'New page'"
+                )
+            return title
+
+        monkeypatch.setattr(browser.page, "title", transitioning_title)
+        observation = await browser.observe()
+        assert observation.url.endswith("/changed")
+        assert observation.title == "New page"
+        assert calls >= 4
+        assert browser.steps == 1
+        assert len(list(tmp_path.glob("*.png"))) == 1
+    finally:
+        await browser.close()

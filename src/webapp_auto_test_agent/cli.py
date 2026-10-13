@@ -1,6 +1,8 @@
 import asyncio
 import json
+import os
 import shutil
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -41,8 +43,13 @@ def dev() -> None:
     if not pnpm:
         raise typer.BadParameter("未找到 pnpm，请运行初始化脚本")
     processes = [
-        subprocess.Popen([sys.executable, "-m", "webapp_auto_test_agent", "serve"]),
-        subprocess.Popen([pnpm, "--dir", str(root() / "frontend"), "dev"]),
+        subprocess.Popen(
+            [sys.executable, "-m", "webapp_auto_test_agent", "serve"],
+            start_new_session=os.name == "posix",
+        ),
+        subprocess.Popen(
+            [pnpm, "--dir", str(root() / "frontend"), "dev"], start_new_session=os.name == "posix"
+        ),
     ]
     typer.echo("工作台 http://127.0.0.1:5173 · API http://127.0.0.1:8000/docs")
     try:
@@ -54,13 +61,22 @@ def dev() -> None:
         pass
     finally:
         for process in processes:
-            if process.poll() is None:
+            if os.name == "posix":
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+            elif process.poll() is None:
                 process.terminate()
         for process in processes:
             try:
                 process.wait(timeout=15)
             except subprocess.TimeoutExpired:
-                process.kill()
+                if os.name == "posix":
+                    os.killpg(process.pid, signal.SIGKILL)
+                else:
+                    process.kill()
+                process.wait()
 
 
 @app.command()

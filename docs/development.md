@@ -8,7 +8,7 @@ Python 3.13.16（uv 0.13.0）；Node 24.21.0；pnpm 12.11.2。Python 使用 `uv 
 
 ## Docker 与目标应用
 
-Docker 是系统级依赖，初始化脚本不擅自修改系统。Linux 根据 [Docker 官方安装文档](https://docs.docker.com/engine/install/) 安装 Engine 与 Compose 插件；macOS/Windows 使用 Docker Desktop。确认当前用户能执行 `docker info` 和 `docker compose version`。当前实施机器缺少 daemon 且 sudo 需要交互认证，因此容器启动仍需实机复核。
+Docker 是系统级依赖，初始化脚本不擅自修改系统。Linux 根据 [Docker 官方安装文档](https://docs.docker.com/engine/install/) 安装 Engine 与 Compose 插件；macOS/Windows 使用 Docker Desktop。确认当前用户能执行 `docker info` 和 `docker compose version`。4gaBoards 已在本机完成构建和健康启动验证；系统安装与代理配置需要管理员权限。
 
 ```bash
 uv run waat targets up      # 固定源码构建，首次启动自动数据库迁移和种子初始化

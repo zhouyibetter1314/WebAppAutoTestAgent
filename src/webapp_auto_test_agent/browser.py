@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,41 @@ from playwright.async_api import (
 
 from .config import Settings
 from .schemas import Action, Application, LocatorSpec, Observation
+
+CONTROL_SNAPSHOT = """elements => elements.filter(el => {
+  const rect = el.getBoundingClientRect();
+  return rect.width && rect.height && getComputedStyle(el).visibility !== 'hidden';
+}).slice(0, 100).map(el => {
+  const tag = el.tagName.toLowerCase();
+  let selector = '';
+  const attrs = ['id', 'data-testid', 'name', 'placeholder', 'aria-label', 'title'];
+  for (const attr of attrs) {
+    const value = el.getAttribute(attr);
+    if (!value) continue;
+    const candidate = tag + '[' + attr + '=' + JSON.stringify(value) + ']';
+    try {
+      if (document.querySelectorAll(candidate).length === 1) { selector = candidate; break; }
+    } catch {}
+  }
+  if (!selector) {
+    const parts = [];
+    let node = el;
+    while (node && node.tagName.toLowerCase() !== 'body') {
+      const type = node.tagName.toLowerCase();
+      let index = 1;
+      for (let sibling = node.previousElementSibling; sibling;
+           sibling = sibling.previousElementSibling)
+        if (sibling.tagName === node.tagName) index++;
+      parts.unshift(type + ':nth-of-type(' + index + ')');
+      node = node.parentElement;
+    }
+    selector = 'body > ' + parts.join(' > ');
+  }
+  return {tag, selector, type: el.getAttribute('type') || '', name: el.getAttribute('name') || '',
+    label: el.getAttribute('aria-label') || '', placeholder: el.getAttribute('placeholder') || '',
+    text: tag === 'input' || tag === 'textarea' ? '' : (el.textContent || '').trim().slice(0, 200),
+    disabled: Boolean(el.disabled)};
+})"""
 
 
 class StepLimit(RuntimeError):
@@ -113,25 +149,39 @@ class BrowserSession:
 
     async def observe(self) -> Observation:
         assert self.page is not None
-        observation = Observation(
-            url=self.redact(self.page.url),
-            title=self.redact(await self.page.title()),
-            aria=self.redact(await self.page.locator("body").aria_snapshot()),
-            screenshot="",
-            snapshot="",
-        )
-        observation.screenshot = f"{observation.id}.png"
-        observation.snapshot = f"{observation.id}.json"
-        # Password fields are masked in evidence screenshots; traces stay local/private.
-        await self.page.screenshot(
-            path=str(self.directory / observation.screenshot),
-            full_page=True,
-            mask=[self.page.locator('input[type="password"]')],
-        )
-        (self.directory / observation.snapshot).write_text(
-            json.dumps(observation.model_dump(), ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        return observation
+        for attempt in range(3):
+            before_url = self.page.url
+            before_title = await self.page.title()
+            aria = await self.page.locator("body").aria_snapshot()
+            controls = await self.page.locator(
+                'input:not([type="hidden"]), textarea, select, button, a, [role="button"]'
+            ).evaluate_all(CONTROL_SNAPSHOT)
+            observation = Observation(
+                url=self.redact(before_url),
+                title=self.redact(before_title),
+                aria=self.redact(aria),
+                controls=json.loads(self.redact(json.dumps(controls))),
+                screenshot="",
+                snapshot="",
+            )
+            observation.screenshot = f"{observation.id}.png"
+            observation.snapshot = f"{observation.id}.json"
+            await self.page.screenshot(
+                path=str(self.directory / observation.screenshot),
+                full_page=True,
+                mask=[self.page.locator('input[type="password"]')],
+            )
+            after_title = await self.page.title()
+            if before_url == self.page.url and before_title == after_title:
+                (self.directory / observation.snapshot).write_text(
+                    observation.model_dump_json(indent=2), encoding="utf-8"
+                )
+                return observation
+            # Discard evidence assembled across two pages; observing never consumes action budget.
+            (self.directory / observation.screenshot).unlink(missing_ok=True)
+            if attempt < 2:
+                await asyncio.sleep(0.1)
+        raise RuntimeError("页面仍在切换，无法获取一致的页面观察")
 
     async def close(self) -> None:
         try:
