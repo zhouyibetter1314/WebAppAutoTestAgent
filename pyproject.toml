@@ -29,7 +29,7 @@ packages = ["src/webapp_auto_test_agent"]
 [tool.ruff]
 target-version = "py313"
 line-length = 100
-extend-exclude = ["targets", ".tools", "frontend", "report/build"]
+extend-exclude = ["targets", ".tools", "frontend", "report/**/build"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]

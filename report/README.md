@@ -1,12 +1,13 @@
-# 阶段汇报
+# 项目汇报
 
-使用 ctexbeamer、Madrid、Fandol 字体，16:9。需要 XeLaTeX、latexmk、ctex 和中文字体包。
+两份报告均沿用 ctexbeamer、Madrid 主题、Fandol 中文字体和 16:9 比例，各自通过 `main.tex` 引入 `sections/` 下的章节。
 
-```bash
-uv run waat report build
-uv run waat report stats
-```
+| 目录 | 用途 | 编译命令（项目根目录） |
+| --- | --- | --- |
+| [course-report/](course-report/) | 原阶段报告归档，保留原有内容 | `uv run waat report build` |
+| [proposal/](proposal/) | 按课程开题要求组织的开题报告 | `uv run waat report build --kind proposal` |
 
-输出 `build/main.pdf`。`sections/` 分章节协作，`figures/` 放可追溯图片，`references.tex` 维护引用。
-`generated/` 的统计只从 execution_mode=real 的本地报告生成，不提交含原始场景/登录页面的数据。
-初始实验页明确待测；有真实结果后修改页标题，并注明样本、标准答案、模型映射及环境版本。
+各自输出到对应目录的 `build/main.pdf`。需要 XeLaTeX、latexmk 和中文字体包。
+真实运行统计命令 `uv run waat report stats` 写入 `course-report/generated/`，供课程报告引用。
+
+原 `main.tex`、`sections/`、`references.tex` 及配套目录已整体移至 `course-report/`，原阶段报告中的待测描述保留其历史状态，最新原型进展见开题报告及 `docs/acceptance.md`。

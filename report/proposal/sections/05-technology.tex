@@ -1,0 +1,27 @@
+\section{技术选型与协作开发}
+\begin{frame}{开发技术栈与选型理由}
+\small
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+层次 & 技术与工具 & 选择理由 \\
+\midrule
+前端 & Vue 3、TypeScript、Element Plus & 支持中文表单、运行状态和证据浏览，类型约束便于联调。\\
+服务与数据 & Python、FastAPI、Pydantic、SQLite & 共用接口模型，支持事件推送，本地部署依赖较少。\\
+智能体与浏览器 & LangGraph、HTTPX、Playwright & 显式管理状态与预算，可获取页面观察、截图及执行轨迹。\\
+环境管理 & Docker Compose、uv、pnpm & 隔离被测应用，锁定依赖，提高团队环境一致性。\\
+质量与文档 & pytest、Ruff、前端测试、XeLaTeX & 分层验证执行逻辑、界面流程，维护可版本化报告。\\
+\bottomrule
+\end{tabularx}
+\end{frame}
+
+\begin{frame}{Git 协作与开发过程留痕}
+\begin{itemize}
+\item \textbf{协作平台：}计划使用 GitHub，按需求建立 Issue，记录负责人、验收条件和关联里程碑。
+\item \textbf{开发流程：}从主分支建立短分支，经 Pull Request 评审并通过检查后合并。
+\item \textbf{过程数据：}保留提交、讨论、代码评审与 CI 日志，使需求到交付的过程可查。
+\item \textbf{版本管理：}提交依赖锁文件、被测版本清单与报告源码，实验结果注明代码版本。
+\item \textbf{质量控制：}使用 Conventional Commits 和 Git hooks，统一执行检查脚本。
+\end{itemize}
+\vfill
+\small 当前仓库已提供协作约定和 CI 配置；远端仓库、分支保护及团队访问需在协作启动时完成。
+\end{frame}

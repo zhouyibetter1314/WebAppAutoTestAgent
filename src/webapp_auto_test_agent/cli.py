@@ -244,7 +244,10 @@ def targets_reset(yes: bool = False) -> None:
 
 
 @report_app.command("build")
-def report_build() -> None:
+def report_build(kind: str = "course-report") -> None:
+    """编译 course-report（课程报告）或 proposal（开题报告）。"""
+    if kind not in {"course-report", "proposal"}:
+        raise typer.BadParameter("报告类型必须为 course-report 或 proposal", param_hint="--kind")
     result = subprocess.run(
         [
             "latexmk",
@@ -254,7 +257,7 @@ def report_build() -> None:
             "-outdir=build",
             "main.tex",
         ],
-        cwd=root() / "report",
+        cwd=root() / "report" / kind,
     )
     raise typer.Exit(result.returncode)
 
@@ -267,7 +270,7 @@ def report_stats() -> None:
         r for r in store.list("run") if r.get("report") and r["report"]["execution_mode"] == "real"
     ]
     counts = {verdict: sum(r["verdict"] == verdict for r in runs) for verdict in Verdict}
-    output = root() / "report/generated"
+    output = root() / "report/course-report/generated"
     output.mkdir(parents=True, exist_ok=True)
     (output / "runs.json").write_text(json.dumps(runs, ensure_ascii=False, indent=2))
     (output / "stats.tex").write_text(

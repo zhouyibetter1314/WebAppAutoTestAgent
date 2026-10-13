@@ -20,8 +20,8 @@ frontend/test-results/
 artifacts/
 .waat/
 *.sqlite*
-report/build/
-report/generated/
+report/**/build/
+report/**/generated/
 *.aux
 *.log
 *.nav

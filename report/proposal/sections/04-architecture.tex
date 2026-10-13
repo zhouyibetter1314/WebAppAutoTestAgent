@@ -1,0 +1,36 @@
+\section{系统架构初步考虑}
+\begin{frame}{系统架构与模块职责}
+\centering
+\begin{tikzpicture}[box/.style={draw=waatteal,rounded corners,minimum width=3.3cm,minimum height=.7cm,align=center,font=\small},node distance=.45cm and .9cm,>=Stealth]
+\node[box] (ui) {Vue 中文工作台};
+\node[box,right=of ui] (cli) {Typer 命令行};
+\node[box,below=of ui] (api) {FastAPI / SSE};
+\node[box,below=of cli] (service) {共享服务 / 运行调度};
+\node[box,below=of api] (store) {SQLite / 事件与报告};
+\node[box,below=of service] (agent) {LangGraph / Agent 策略};
+\node[box,below=of store] (model) {DeepSeek 模型适配器};
+\node[box,below=of agent] (browser) {Playwright / 被测应用};
+\draw[->] (ui)--(api);
+\draw[->] (cli)--(service);
+\draw[->] (api)--(service);
+\draw[->] (service)--(store);
+\draw[->] (service)--(agent);
+\draw[->] (agent)--(model);
+\draw[->] (agent)--(browser);
+\end{tikzpicture}
+\vfill
+\small 浏览器工具负责执行，Agent 负责决策与验证；状态与证据统一持久化，供界面和报告读取。
+\end{frame}
+
+\begin{frame}{自主测试流程与结果判定}
+\begin{enumerate}
+\item \textbf{解析与规划：}保留用户原文，固定预期检查点，生成可调整的执行计划。
+\item \textbf{观察与执行：}读取 DOM/ARIA 与截图，生成结构化动作，通过校验后执行。
+\item \textbf{验证与恢复：}引用页面观察核对检查点，失败时在剩余预算内有限重试。
+\item \textbf{结束与报告：}结束前复核未完成项，保存结论、时间线、截图与 Trace。
+\end{enumerate}
+\begin{block}{结论与证据对应}
+PASS：所有检查点均满足；FAIL：有可靠证据表明检查点不满足；INCONCLUSIVE：执行异常或证据不足。
+\end{block}
+\small LangGraph 管理流程和状态，测试策略由项目自主设计；模型的完成声明不能直接替代检查点验证。
+\end{frame}

@@ -50,7 +50,7 @@ CLI 退出码 0=全部 PASS，1=包含 FAIL，2=无法判定或基础设施异�
 
 ## 汇报和真实验收
 
-Ubuntu 可安装 `texlive-xetex texlive-lang-chinese texlive-latex-extra latexmk`。`uv run waat report build` 生成 report/build/main.pdf。
+Ubuntu 可安装 `texlive-xetex texlive-lang-chinese texlive-latex-extra latexmk`。`uv run waat report build` 生成 `report/course-report/build/main.pdf`；`uv run waat report build --kind proposal` 生成 `report/proposal/build/main.pdf`。两份报告各自维护 `main.tex` 和 `sections/`，`uv run waat report stats` 将真实统计写入 `report/course-report/generated/`。
 
 ```bash
 WAAT_LIVE=1 uv run pytest -v -m live

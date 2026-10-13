@@ -42,7 +42,8 @@ bash scripts/check.sh all         # lint、构建与真实浏览器离线测试
 bash scripts/check.sh format      # 统一格式化
 pnpm --dir frontend test:e2e      # 工作台→API→模拟模型→真实浏览器
 uv run cz commit                 # 交互式 Conventional Commits
-uv run waat report build          # 中文 Beamer PDF
+uv run waat report build          # 课程报告 PDF
+uv run waat report build --kind proposal  # 开题报告 PDF
 uv run waat report stats          # 仅真实执行记录的统计
 ```
 
@@ -57,7 +58,7 @@ uv run waat report stats          # 仅真实执行记录的统计
 | `tests/` | 核心、API、模型异常、浏览器与手动真实验收 |
 | `targets/` | 3 个固定版本子模块与完整 SHA 清单 |
 | `infra/` | 项目维护的 4gaBoards 构建与 Compose |
-| `report/` | 中文 Beamer 源码与章节 |
+| `report/` | `course-report/` 课程报告、`proposal/` 开题报告，各自包含 main.tex 与 sections/ |
 | `docs/` | 架构、开发、验收与决策记录 |
 | `.waat/` | 本机 SQLite 与运行证据，自动创建且忽略提交 |
 
