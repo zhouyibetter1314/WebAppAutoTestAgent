@@ -135,6 +135,11 @@
     "editor.rulers": [],
     "files.trimTrailingWhitespace": false
   },
+  // LaTeX：关闭保存时格式化，避免 LaTeX Workshop 每次保存弹出「未设置 formatter」提示
+  "[latex]": {
+    "editor.wordWrap": "on",
+    "editor.formatOnSave": false
+  },
 
   // ---------------------------------------------------------------- 终端
   "terminal.integrated.defaultProfile.linux": "bash",
@@ -142,6 +147,81 @@
   "terminal.integrated.enablePersistentSessions": true,
   "terminal.integrated.cwd": "${workspaceFolder}",
   "python.terminal.activateEnvironment": true,
+
+  // ---------------------------------------------------------------- latex
+  // 产物输出到根文件同级的 build/，与 `uv run waat report build` 的 -outdir=build 保持一致；
+  // 相对路径以根文件所在目录为基准（report/proposal/main.tex → report/proposal/build/）
+  "latex-workshop.latex.outDir": "build",
+  // 编译工具和命令；%OUTDIR%/%AUXDIR% 由上面的 outDir 展开，确保工具真正写到 build/
+  "latex-workshop.latex.tools": [
+    {
+      "name": "xelatexmk",
+      "command": "latexmk",
+      "args": [
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "-xelatex",
+        "-outdir=%OUTDIR%",
+        "-auxdir=%AUXDIR%",
+        "%DOC%"
+      ]
+    },
+    {
+      "name": "xelatex",
+      "command": "xelatex",
+      "args": [
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "-output-directory=%OUTDIR%",
+        "%DOCFILE%"
+      ]
+    },
+    {
+      "name": "pdflatex",
+      "command": "pdflatex",
+      "args": [
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "-output-directory=%OUTDIR%",
+        "%DOCFILE%"
+      ]
+    },
+    // bibtex/biber 在 outDir 内执行才能读到 .aux/.bcf
+    { "name": "bibtex", "command": "bibtex", "args": ["%DOCFILE%"], "cwd": "%OUTDIR%" },
+    { "name": "biber", "command": "biber", "args": ["%DOCFILE%"], "cwd": "%OUTDIR%" }
+  ],
+  // 设置编译方法（新版 BibLaTeX 默认用 biber 处理参考文献）；
+  // ctexbeamer 需要 XeLaTeX，故默认用第一条 xelatexmk
+  "latex-workshop.latex.recipes": [
+    { "name": "xelatexmk", "tools": ["xelatexmk"] },
+    { "name": "pdflatex", "tools": ["pdflatex"] },
+    { "name": "xe->biber->xe->xe", "tools": ["xelatex", "biber", "xelatex", "xelatex"] },
+    { "name": "pdf->biber->pdf->pdf", "tools": ["pdflatex", "biber", "pdflatex", "pdflatex"] }
+  ],
+  "latex-workshop.latex.recipe.default": "xelatexmk",
+  // 保存时不自动编译
+  "latex-workshop.latex.autoBuild.run": "never",
+  // 编译时自动删除中间文件（建议保留 *.aux、*.bbl、*.out 以加快 xelatex 编译速度）
+  "latex-workshop.latex.autoClean.run": "onBuilt",
+  "latex-workshop.latex.clean.fileTypes": [
+    "*.idx",
+    "*.ind",
+    "*.lof",
+    "*.lot",
+    "*.acn",
+    "*.acr",
+    "*.alg",
+    "*.glg",
+    "*.glo",
+    "*.gls",
+    "*.ist",
+    "*.fls",
+    "*.log",
+    "*.fdb_latexmk"
+  ],
 
   // ---------------------------------------------------------------- 其它
   "gitlens.codeLens.enabled": false,
