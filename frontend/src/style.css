@@ -156,6 +156,51 @@ p {
   font-size: 12px;
   color: #78867e;
 }
+.summary .el-input-number {
+  width: 130px;
+}
+.current-step {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 20px;
+  align-items: start;
+  padding: 18px 22px;
+  border: 1px solid #bcded4;
+  border-left: 4px solid #147d72;
+  border-radius: 8px;
+  background: #f2faf7;
+}
+.current-step > span {
+  color: #558b7b;
+  font-size: 12px;
+  font-weight: 700;
+}
+.current-step p {
+  margin: 5px 0 0;
+}
+.resource-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: -12px 0 24px;
+}
+.resource-summary > div {
+  display: grid;
+  gap: 6px;
+  padding: 15px 18px;
+  background: #edf3f0;
+  border-radius: 8px;
+}
+.resource-summary span {
+  color: #78867e;
+  font-size: 11px;
+}
+.resource-summary b {
+  font-size: 16px;
+}
+.connection-error {
+  color: #c1584c;
+}
 .panel {
   background: #fff;
   border: 1px solid #e0e8e2;
@@ -202,6 +247,11 @@ p {
 }
 .event > div {
   min-width: 0;
+  width: 100%;
+}
+.event p {
+  margin: 5px 0;
+  line-height: 1.55;
 }
 .event small {
   display: block;
@@ -216,6 +266,18 @@ p {
   text-align: center;
   padding-top: 5px;
   color: #378771;
+}
+.event-warning .event-index {
+  background: #fff4db;
+  color: #987947;
+}
+.event-danger .event-index {
+  background: #fce9e7;
+  color: #c1584c;
+}
+.event-success .event-index {
+  background: #e4f6ed;
+  color: #208869;
 }
 summary {
   cursor: pointer;
@@ -260,6 +322,23 @@ pre {
   margin: 0;
   overflow-wrap: anywhere;
 }
+.report-meta dl {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 2.2;
+}
+.report-meta dt {
+  color: #84948b;
+}
+.report-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.config-example {
+  user-select: all;
+}
 .pass {
   color: #208869;
 }
@@ -286,6 +365,9 @@ pre {
   }
   .run-grid {
     grid-template-columns: 1fr;
+  }
+  .resource-summary {
+    grid-template-columns: repeat(2, 1fr);
   }
   header {
     padding: 0 22px;
@@ -328,6 +410,13 @@ pre {
   }
   .summary > div {
     padding: 18px 12px;
+  }
+  .resource-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .current-step {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
   .summary strong {
     font-size: 22px;

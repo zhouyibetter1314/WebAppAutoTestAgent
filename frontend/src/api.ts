@@ -5,14 +5,25 @@ export type Run = components['schemas']['Run']
 export type RunEvent = components['schemas']['Event']
 export type SettingsInfo = components['schemas']['SettingsInfo']
 export async function api<T>(path: string, body?: unknown, method?: string): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    method: method ?? (body ? 'POST' : 'GET'),
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  let response: Response
+  try {
+    response = await fetch(`/api${path}`, {
+      method: method ?? (body ? 'POST' : 'GET'),
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  } catch {
+    throw new Error('无法连接后端服务，请确认 API 已启动')
+  }
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(typeof error.detail === 'string' ? error.detail : '请检查输入内容')
+    let detail = ''
+    try {
+      const error = await response.json()
+      detail = typeof error.detail === 'string' ? error.detail : ''
+    } catch {
+      // A proxy or upstream service may return a non-JSON error page.
+    }
+    throw new Error(detail || `请求失败（HTTP ${response.status}），请检查输入或服务状态`)
   }
   return response.json()
 }
