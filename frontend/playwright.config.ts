@@ -1,4 +1,11 @@
 import { defineConfig } from '@playwright/test'
+import { fileURLToPath } from 'node:url'
+const python = fileURLToPath(
+  new URL(
+    process.platform === 'win32' ? '../.venv/Scripts/python.exe' : '../.venv/bin/python',
+    import.meta.url,
+  ),
+)
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -9,7 +16,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: '../.venv/bin/python ../scripts/e2e_server.py',
+      command: `"${python}" ../scripts/e2e_server.py`,
       url: 'http://127.0.0.1:8000/api/health',
       reuseExistingServer: false,
     },

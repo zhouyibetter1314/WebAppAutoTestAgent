@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { api, type Run, type RunEvent, mergeEvents, terminal, statusText, verdictText } from './api'
+import { eventLabels, eventSummary, eventTone } from './events'
 const route = useRoute(),
   router = useRouter(),
   run = ref<Run>(),
@@ -16,7 +17,13 @@ const observation = computed(
     run.value?.observations.find((o) => o.id === observationId.value) ??
     run.value?.observations.at(-1),
 )
-const artifact = (name: string) => `/api/runs/${run.value?.id}/artifacts/${name}`
+const currentEvent = computed(() => events.value.at(-1))
+const artifact = (name: string) =>
+  `/api/runs/${run.value?.id}/artifacts/${encodeURIComponent(name)}`
+const readableError = (value: unknown) => (value instanceof Error ? value.message : String(value))
+const formatNumber = (value: number) => new Intl.NumberFormat('zh-CN').format(value)
+const modeText = (value: string) =>
+  ({ real: '真实模型', 'test-double': '测试模型' })[value] ?? value
 async function load() {
   run.value = await api<Run>(`/runs/${route.params.id}`)
 }
@@ -27,22 +34,31 @@ async function connect() {
   try {
     await load()
     events.value = await api<RunEvent[]>(`/runs/${route.params.id}/events`)
+    if (run.value && terminal(run.value.status)) {
+      connection.value = '记录已保存'
+      return
+    }
     stream = new EventSource(
       `/api/runs/${route.params.id}/events/stream?after=${events.value.at(-1)?.sequence ?? 0}`,
     )
     stream.onopen = () => (connection.value = '已连接')
     stream.onerror = () => (connection.value = '连接中断，正在重连')
     stream.addEventListener('update', (e) => {
-      events.value = mergeEvents(events.value, [JSON.parse(e.data)])
-      void load().catch((e) => ElMessage.error(String(e)))
+      try {
+        events.value = mergeEvents(events.value, [JSON.parse(e.data)])
+      } catch {
+        connection.value = '收到无法解析的事件'
+      }
+      void load().catch((e) => ElMessage.error(readableError(e)))
     })
     stream.addEventListener('complete', () => {
       stream?.close()
       connection.value = '记录已保存'
-      void load().catch((e) => ElMessage.error(String(e)))
+      void load().catch((e) => ElMessage.error(readableError(e)))
     })
   } catch (e) {
-    ElMessage.error(String(e))
+    connection.value = '连接失败'
+    ElMessage.error(readableError(e))
   }
 }
 async function action(kind: 'cancel' | 'rerun') {
@@ -57,7 +73,7 @@ async function action(kind: 'cancel' | 'rerun') {
       await router.push(`/runs/${next.id}`)
     }
   } catch (e) {
-    ElMessage.error(String(e))
+    ElMessage.error(readableError(e))
   } finally {
     busy.value = false
   }
@@ -65,22 +81,6 @@ async function action(kind: 'cancel' | 'rerun') {
 onMounted(connect)
 watch(() => route.params.id, connect)
 onBeforeUnmount(() => stream?.close())
-const labels: Record<string, string> = {
-  queued: '任务已排队',
-  started: '开始执行',
-  parsed: '解析场景',
-  planned: '生成计划',
-  observation: '观察页面',
-  decision: '选择操作',
-  action: '执行操作',
-  verification: '检查验收条件',
-  evidence_audit: '审查判定证据',
-  final_verification: '结束前复核',
-  verification_rejected: '证据不足，继续验证',
-  recovery: '尝试恢复',
-  finished: '生成报告',
-  cancelled: '已取消',
-}
 </script>
 <template>
   <section v-if="run" class="page">
@@ -88,7 +88,10 @@ const labels: Record<string, string> = {
     <div class="heading">
       <div>
         <h1>{{ run.scenario.name }}</h1>
-        <p>{{ statusText[run.status] }} · {{ connection }}</p>
+        <p>
+          {{ statusText[run.status] }} ·
+          <span :class="{ 'connection-error': connection.includes('失败') }">{{ connection }}</span>
+        </p>
       </div>
       <div>
         <el-button v-if="!terminal(run.status)" :loading="busy" @click="action('cancel')">
@@ -97,6 +100,20 @@ const labels: Record<string, string> = {
         ><a v-if="run.report" :href="`/api/runs/${run.id}/export`"
           ><el-button type="primary">下载报告包</el-button></a
         >
+      </div>
+    </div>
+    <el-alert
+      v-if="connection === '连接失败'"
+      title="无法读取运行数据，请确认后端服务已启动后刷新页面"
+      type="error"
+      :closable="false"
+      show-icon
+    />
+    <div v-if="currentEvent && !terminal(run.status)" class="current-step">
+      <span>当前进度</span>
+      <div>
+        <b>{{ eventLabels[currentEvent.kind] ?? currentEvent.kind }}</b>
+        <p>{{ eventSummary(currentEvent) }}</p>
       </div>
     </div>
     <div class="summary">
@@ -116,20 +133,42 @@ const labels: Record<string, string> = {
         ><span>测试结论</span>
       </div>
     </div>
+    <div class="resource-summary">
+      <div>
+        <span>模型请求</span><b>{{ formatNumber(run.resources.model_requests) }}</b>
+      </div>
+      <div>
+        <span>输入 Token</span><b>{{ formatNumber(run.resources.input_tokens) }}</b>
+      </div>
+      <div>
+        <span>输出 Token</span><b>{{ formatNumber(run.resources.output_tokens) }}</b>
+      </div>
+      <div>
+        <span>Token 统计</span
+        ><b>{{ run.resources.token_usage_complete ? '完整' : '可能不完整' }}</b>
+      </div>
+    </div>
     <el-alert
       v-if="run.reason"
       :title="run.reason"
       :closable="false"
-      :type="run.verdict === 'PASS' ? 'success' : 'info'"
+      :type="run.verdict === 'PASS' ? 'success' : run.verdict === 'FAIL' ? 'error' : 'warning'"
     />
     <div class="run-grid">
       <div class="panel timeline">
         <h3>执行时间线</h3>
-        <div v-for="event in events" :key="event.sequence" class="event">
+        <p v-if="!events.length" class="empty">等待第一条运行事件。</p>
+        <div
+          v-for="event in events"
+          :key="event.sequence"
+          class="event"
+          :class="`event-${eventTone(event.kind)}`"
+        >
           <span class="event-index">{{ event.sequence }}</span>
           <div>
-            <b>{{ labels[event.kind] ?? event.kind }}</b
-            ><small>{{ new Date(event.created_at).toLocaleTimeString() }}</small>
+            <b>{{ eventLabels[event.kind] ?? event.kind }}</b>
+            <p>{{ eventSummary(event) }}</p>
+            <small>{{ new Date(event.created_at).toLocaleTimeString() }}</small>
             <details>
               <summary>详细记录</summary>
               <pre>{{ JSON.stringify(event.data, null, 2) }}</pre>
@@ -181,6 +220,22 @@ const labels: Record<string, string> = {
           </div>
           <p v-if="!run.checkpoints.length" class="empty">解析后会显示独立检查点。</p>
           <a v-if="run.report?.trace" :href="artifact(run.report.trace)">下载 Playwright Trace</a>
+        </div>
+        <div v-if="run.report" class="panel report-meta">
+          <h3>报告信息</h3>
+          <dl>
+            <dt>执行模式</dt>
+            <dd>{{ modeText(run.report.execution_mode) }}</dd>
+            <dt>请求模型</dt>
+            <dd>{{ run.report.model.api_model || '未记录' }}</dd>
+            <dt>服务返回模型</dt>
+            <dd>{{ run.report.model.returned_model || '未记录' }}</dd>
+            <dt>模型服务</dt>
+            <dd>{{ run.report.model.base_url || '未记录' }}</dd>
+            <dt>完成时间</dt>
+            <dd>{{ run.finished_at ? new Date(run.finished_at).toLocaleString() : '未完成' }}</dd>
+          </dl>
+          <p>完整 JSON、Markdown、模型调用记录、截图和 Trace 包含在报告包中。</p>
         </div>
       </div>
     </div>

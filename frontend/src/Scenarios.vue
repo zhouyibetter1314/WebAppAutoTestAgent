@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { api, type Run, type Application, type Scenario } from './api'
 import { useCatalog } from './store'
+import { applicationError, parseScenarioImport, scenarioError } from './validation'
 const catalog = useCatalog(),
   router = useRouter()
 const busy = ref(false),
@@ -11,16 +12,18 @@ const busy = ref(false),
   scenarioDialog = ref(false),
   importDialog = ref(false),
   imported = ref(''),
-  selected = ref<string[]>([])
+  selected = ref<string[]>([]),
+  maxSteps = ref(35)
 const editingApp = ref(''),
   editingScenario = ref('')
-const app = reactive({
+const defaultApp = () => ({
   name: '4gaBoards',
   base_url: 'http://localhost:3000',
   username_env: 'BOARDS_USERNAME',
   password_env: 'BOARDS_PASSWORD',
   version: '3.2.16',
 })
+const app = reactive(defaultApp())
 const scenario = reactive({ application_id: '', name: '', description: '', source: '自建场景' })
 async function safely(action: () => Promise<void>) {
   if (busy.value) return
@@ -28,7 +31,7 @@ async function safely(action: () => Promise<void>) {
   try {
     await action()
   } catch (e) {
-    ElMessage.error(String(e))
+    ElMessage.error(e instanceof Error ? e.message : String(e))
   } finally {
     busy.value = false
   }
@@ -36,6 +39,7 @@ async function safely(action: () => Promise<void>) {
 onMounted(() => safely(() => catalog.load()))
 function createApplication() {
   editingApp.value = ''
+  Object.assign(app, defaultApp())
   appDialog.value = true
 }
 function editApplication(value: Application) {
@@ -60,18 +64,32 @@ function editScenario(value: Scenario) {
   scenarioDialog.value = true
 }
 function createScenario() {
+  if (!catalog.applications.length) {
+    ElMessage.warning('请先添加一个被测应用')
+    return
+  }
   editingScenario.value = ''
   scenario.name = ''
   scenario.description = ''
-
+  scenario.source = '自建场景'
   scenario.application_id = catalog.applications[0]?.id ?? ''
   scenarioDialog.value = true
 }
 async function saveApp() {
+  const error = applicationError(app)
+  if (error) return ElMessage.warning(error)
   await safely(async () => {
+    const payload = {
+      ...app,
+      name: app.name.trim(),
+      base_url: app.base_url.trim(),
+      username_env: app.username_env.trim(),
+      password_env: app.password_env.trim(),
+      version: app.version.trim(),
+    }
     await api<Application>(
       editingApp.value ? `/applications/${editingApp.value}` : '/applications',
-      app,
+      payload,
       editingApp.value ? 'PUT' : 'POST',
     )
     await catalog.load()
@@ -79,10 +97,18 @@ async function saveApp() {
   })
 }
 async function saveScenario() {
+  const error = scenarioError(scenario)
+  if (error) return ElMessage.warning(error)
   await safely(async () => {
+    const payload = {
+      ...scenario,
+      name: scenario.name.trim(),
+      description: scenario.description.trim(),
+      source: scenario.source.trim() || '自建场景',
+    }
     await api(
       editingScenario.value ? `/scenarios/${editingScenario.value}` : '/scenarios',
-      scenario,
+      payload,
       editingScenario.value ? 'PUT' : 'POST',
     )
     await catalog.load()
@@ -90,18 +116,22 @@ async function saveScenario() {
   })
 }
 async function launch(ids: string[]) {
+  if (!ids.length) return
   await safely(async () => {
     let last: Run | undefined
-    for (const id of ids) last = await api<Run>('/runs', { scenario_id: id, max_steps: 35 })
+    for (const id of ids)
+      last = await api<Run>('/runs', { scenario_id: id, max_steps: maxSteps.value })
     if (last) await router.push(ids.length === 1 ? `/runs/${last.id}` : '/runs')
   })
 }
 async function importScenarios() {
   await safely(async () => {
-    const value = JSON.parse(imported.value)
-    await api('/scenarios/import', { scenarios: Array.isArray(value) ? value : value.scenarios })
+    const scenarios = parseScenarioImport(imported.value)
+    await api('/scenarios/import', { scenarios })
     await catalog.load()
     importDialog.value = false
+    imported.value = ''
+    ElMessage.success(`已导入 ${scenarios.length} 个场景`)
   })
 }
 </script>
@@ -113,7 +143,9 @@ async function importScenarios() {
         <h1>场景与应用</h1>
         <p>描述你的目标，让 Agent 执行操作并留下可检查的证据。</p>
       </div>
-      <el-button type="primary" @click="createScenario">新建场景</el-button>
+      <el-button type="primary" :disabled="!catalog.applications.length" @click="createScenario">
+        新建场景
+      </el-button>
     </div>
     <div class="summary">
       <div>
@@ -124,7 +156,10 @@ async function importScenarios() {
         <strong>{{ catalog.applications.length }}</strong
         ><span>被测应用</span>
       </div>
-      <div><strong>35</strong><span>单次操作上限</span></div>
+      <div>
+        <el-input-number v-model="maxSteps" :min="1" :max="35" controls-position="right" />
+        <span>本次运行操作上限（最多 35）</span>
+      </div>
     </div>
     <div class="panel">
       <div class="panel-title">
@@ -184,8 +219,9 @@ async function importScenarios() {
       width="560px"
     >
       <el-form label-position="top">
-        <el-form-item label="应用名称"><el-input v-model="app.name" /></el-form-item
-        ><el-form-item label="应用地址"><el-input v-model="app.base_url" /></el-form-item
+        <el-form-item label="应用名称" required
+          ><el-input v-model="app.name" maxlength="100" /></el-form-item
+        ><el-form-item label="应用地址" required><el-input v-model="app.base_url" /></el-form-item
         ><el-form-item label="版本"><el-input v-model="app.version" /></el-form-item
         ><el-form-item label="用户名环境变量名称">
           <el-input v-model="app.username_env" /> </el-form-item
@@ -194,6 +230,7 @@ async function importScenarios() {
         </el-form-item>
         <p>这里只填写变量名称，账号与密码保存在本机 .env。</p> </el-form
       ><template #footer>
+        <el-button @click="appDialog = false">取消</el-button>
         <el-button type="primary" :loading="busy" @click="saveApp">保存应用</el-button>
       </template> </el-dialog
     ><el-dialog
@@ -202,7 +239,7 @@ async function importScenarios() {
       width="640px"
     >
       <el-form label-position="top">
-        <el-form-item label="被测应用">
+        <el-form-item label="被测应用" required>
           <el-select v-model="scenario.application_id">
             <el-option
               v-for="item in catalog.applications"
@@ -211,21 +248,29 @@ async function importScenarios() {
               :value="item.id"
             />
           </el-select> </el-form-item
-        ><el-form-item label="场景名称"><el-input v-model="scenario.name" /></el-form-item
-        ><el-form-item label="场景原文与验收条件">
+        ><el-form-item label="场景名称" required
+          ><el-input v-model="scenario.name" maxlength="200" show-word-limit /></el-form-item
+        ><el-form-item label="场景原文与验收条件" required>
           <el-input
             v-model="scenario.description"
             type="textarea"
             :rows="7"
+            maxlength="12000"
+            show-word-limit
             placeholder="例如：创建 Course Test 项目，确认仪表盘和侧栏均显示该项目。"
           />
-        </el-form-item> </el-form
+        </el-form-item>
+        <el-form-item label="场景来源"
+          ><el-input v-model="scenario.source" maxlength="100"
+        /></el-form-item> </el-form
       ><template #footer>
+        <el-button @click="scenarioDialog = false">取消</el-button>
         <el-button type="primary" :loading="busy" @click="saveScenario"> 保存场景 </el-button>
       </template> </el-dialog
     ><el-dialog v-model="importDialog" title="导入场景 JSON" width="640px">
       <p>输入场景数组，每项包含 application_id、name、description、source。</p>
       <el-input v-model="imported" type="textarea" :rows="12" /><template #footer>
+        <el-button @click="importDialog = false">取消</el-button>
         <el-button type="primary" :loading="busy" @click="importScenarios"> 导入 </el-button>
       </template>
     </el-dialog>

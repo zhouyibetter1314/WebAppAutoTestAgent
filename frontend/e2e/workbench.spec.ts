@@ -1,4 +1,12 @@
 import { test, expect } from '@playwright/test'
+test('validates application input before calling the API', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '添加应用' }).click()
+  await page.getByRole('dialog').getByRole('textbox').nth(1).fill('not-a-url')
+  await page.getByRole('button', { name: '保存应用' }).click()
+  await expect(page.getByText('请输入有效的应用地址')).toBeVisible()
+})
+
 test('create application and scenario, run, reload evidence and export', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: '添加应用' }).click()
@@ -17,6 +25,8 @@ test('create application and scenario, run, reload evidence and export', async (
   await page.getByRole('button', { name: '保存场景' }).click()
   await page.getByRole('button', { name: '运行', exact: true }).click()
   await expect(page.getByText('全部检查点已验证', { exact: true })).toBeVisible({ timeout: 30000 })
+  await expect(page.getByText('模型请求', { exact: true })).toBeVisible()
+  await expect(page.getByText('输入 Token', { exact: true })).toBeVisible()
   await page.reload()
   await expect(page.getByAltText('运行页面截图')).toBeVisible()
   await expect(page.getByText('已满足', { exact: true })).toBeVisible()
